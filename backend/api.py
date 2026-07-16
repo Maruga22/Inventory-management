@@ -1,3 +1,4 @@
+import requests
 from flask import Blueprint, jsonify, request
 import requests
 
@@ -93,10 +94,20 @@ def get_product(barcode):
 
     url = f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"
 
-    response = requests.get(url)
+    headers = {
+        "User-Agent": "InventoryManagementSystem/1.0 (student project)"
+    }
+
+    response = requests.get(url, headers=headers, timeout=10)
+
+    print("Status Code:", response.status_code)
+    print("Response:", response.text[:300])
 
     if response.status_code != 200:
-        return jsonify({"message": "Unable to connect to OpenFoodFacts"}), 500
+        return jsonify({
+            "message": "Unable to connect to OpenFoodFacts",
+            "status_code": response.status_code
+        }), 500
 
     product = response.json()
 

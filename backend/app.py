@@ -93,3 +93,39 @@ def delete(item_id):
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+import requests
+from flask import jsonify
+
+@app.route("/product/<barcode>", methods=["GET"])
+def get_product(barcode):
+
+    url = f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"
+
+    headers = {
+        "User-Agent": "InventoryManagementSystem/1.0"
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+
+        print("Status Code:", response.status_code)
+        print("Response:", response.text[:300])  # Print first 300 characters
+
+        data = response.json()
+
+        if data.get("status") == 1:
+
+            product = data["product"]
+
+            return jsonify({
+                "name": product.get("product_name", "Unknown"),
+                "brand": product.get("brands", "Unknown"),
+                "category": product.get("categories", "Unknown")
+            })
+
+        return jsonify({"message": "Product not found"}), 404
+
+    except Exception as e:
+        print("ERROR:", e)
+        return jsonify({"message": str(e)}), 500
