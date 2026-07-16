@@ -1,147 +1,162 @@
-"""
-Command-line client for the inventory management REST API.
+# cli.py
 
-Examples
---------
-    python cli.py add --name "Coca-Cola 330ml" --barcode 5449000000996 --quantity 24 --price 0.99
-    python cli.py list --category Beverages
-    python cli.py view 1
-    python cli.py update 1 --quantity 50
-    python cli.py delete 1
-    python cli.py lookup --barcode 5449000000996
-    python cli.py import-product --barcode 5449000000996 --quantity 24 --price 0.99
-"""
-import json
-
-import click
 import requests
 
-DEFAULT_API_URL = "http://127.0.0.1:5000/api"
+BASE_URL = "http://127.0.0.1:5000"
 
 
-def _print(data):
-    click.echo(json.dumps(data, indent=2, default=str))
+# -----------------------------
+# VIEW ALL ITEMS
+# -----------------------------
+def view_items():
+    response = requests.get(f"{BASE_URL}/items")
+
+    if response.status_code == 200:
+        items = response.json()
+
+        print("\n===== INVENTORY =====")
+
+        for item in items:
+            print(f"""
+ID: {item['id']}
+Name: {item['name']}
+Barcode: {item['barcode']}
+Quantity: {item['quantity']}
+Price: Ksh {item['price']}
+Category: {item['category']}
+-------------------------
+""")
+    else:
+        print("Unable to retrieve inventory.")
 
 
-def _handle_response(resp):
-    try:
-        _print(resp.json())
-    except ValueError:
-        click.echo(f"Request failed with status {resp.status_code}: {resp.text}")
+# -----------------------------
+# ADD ITEM
+# -----------------------------
+def add_item():
 
+    print("\nAdd New Item")
 
-@click.group()
-@click.option("--api-url", default=DEFAULT_API_URL, show_default=True,
-              help="Base URL of the inventory API")
-@click.pass_context
-def cli(ctx, api_url):
-    """Inventory Management CLI - talks to the Flask inventory REST API."""
-    ctx.ensure_object(dict)
-    ctx.obj["API_URL"] = api_url.rstrip("/")
-
-
-@cli.command()
-@click.option("--name", required=True, help="Product name")
-@click.option("--barcode", default=None, help="Product barcode (EAN/UPC)")
-@click.option("--category", default=None)
-@click.option("--quantity", default=0, type=int, show_default=True)
-@click.option("--price", default=0.0, type=float, show_default=True)
-@click.option("--description", default=None)
-@click.option("--brand", default=None)
-@click.pass_context
-def add(ctx, name, barcode, category, quantity, price, description, brand):
-    """Add a new inventory item."""
-    payload = {
-        "name": name,
-        "barcode": barcode,
-        "category": category,
-        "quantity": quantity,
-        "price": price,
-        "description": description,
-        "brand": brand,
+    data = {
+        "name": input("Name: "),
+        "barcode": input("Barcode: "),
+        "quantity": int(input("Quantity: ")),
+        "price": float(input("Price: ")),
+        "category": input("Category: ")
     }
-    resp = requests.post(f"{ctx.obj['API_URL']}/inventory", json=payload)
-    _handle_response(resp)
+
+    response = requests.post(
+        f"{BASE_URL}/items",
+        json=data
+    )
+
+    if response.status_code == 201:
+        print("Item added successfully!")
+    else:
+        print(response.json())
 
 
-@cli.command("list")
-@click.option("--name", default=None, help="Filter by name substring")
-@click.option("--category", default=None, help="Filter by category substring")
-@click.pass_context
-def list_items(ctx, name, category):
-    """List inventory items, optionally filtered."""
-    params = {k: v for k, v in {"name": name, "category": category}.items() if v}
-    resp = requests.get(f"{ctx.obj['API_URL']}/inventory", params=params)
-    _handle_response(resp)
+# -----------------------------
+# UPDATE ITEM
+# -----------------------------
+def update_item():
+
+    item_id = input("Enter Item ID: ")
+
+    data = {
+        "name": input("New Name: "),
+        "barcode": input("New Barcode: "),
+        "quantity": int(input("New Quantity: ")),
+        "price": float(input("New Price: ")),
+        "category": input("New Category: ")
+    }
+
+    response = requests.put(
+        f"{BASE_URL}/items/{item_id}",
+        json=data
+    )
+
+    if response.status_code == 200:
+        print("Item updated successfully!")
+    else:
+        print(response.json())
 
 
-@cli.command()
-@click.argument("item_id", type=int)
-@click.pass_context
-def view(ctx, item_id):
-    """View a single inventory item by ID."""
-    resp = requests.get(f"{ctx.obj['API_URL']}/inventory/{item_id}")
-    _handle_response(resp)
+def delete_item():
+
+    item_id = input("Enter Item ID to delete: ")
+
+    response = requests.delete(
+        f"{BASE_URL}/items/{item_id}"
+    )
+
+    print(response.json()["message"])
 
 
-@cli.command()
-@click.argument("item_id", type=int)
-@click.option("--name", default=None)
-@click.option("--barcode", default=None)
-@click.option("--category", default=None)
-@click.option("--quantity", default=None, type=int)
-@click.option("--price", default=None, type=float)
-@click.option("--description", default=None)
-@click.option("--brand", default=None)
-@click.pass_context
-def update(ctx, item_id, **fields):
-    """Update one or more fields on an existing inventory item."""
-    payload = {k: v for k, v in fields.items() if v is not None}
-    if not payload:
-        click.echo("Provide at least one field to update.")
-        return
-    resp = requests.put(f"{ctx.obj['API_URL']}/inventory/{item_id}", json=payload)
-    _handle_response(resp)
+
+def search_product():
+
+    barcode = input("Enter Barcode: ")
+
+    response = requests.get(
+        f"{BASE_URL}/product/{barcode}"
+    )
+
+    if response.status_code == 200:
+
+        product = response.json()
+
+        print("\nProduct Found")
+        print("----------------")
+        print("Name:", product["product_name"])
+        print("Brand:", product["brand"])
+        print("Category:", product["category"])
+
+    else:
+        print(response.json()["message"])
 
 
-@cli.command()
-@click.argument("item_id", type=int)
-@click.pass_context
-def delete(ctx, item_id):
-    """Delete an inventory item."""
-    resp = requests.delete(f"{ctx.obj['API_URL']}/inventory/{item_id}")
-    _handle_response(resp)
+def menu():
 
+    while True:
 
-@cli.command()
-@click.option("--barcode", default=None, help="Look up a product by barcode")
-@click.option("--name", default=None, help="Search products by name")
-@click.pass_context
-def lookup(ctx, barcode, name):
-    """Look up product details from OpenFoodFacts (does not save anything)."""
-    if not barcode and not name:
-        click.echo("Provide --barcode or --name")
-        return
-    params = {}
-    if barcode:
-        params["barcode"] = barcode
-    if name:
-        params["name"] = name
-    resp = requests.get(f"{ctx.obj['API_URL']}/inventory/lookup", params=params)
-    _handle_response(resp)
+        print("""
+==============================
+ Inventory Management System
+==============================
 
+1. View Inventory
+2. Add Item
+3. Update Item
+4. Delete Item
+5. Search Product
+6. Exit
+""")
 
-@cli.command("import-product")
-@click.option("--barcode", required=True, help="Barcode of the product to import")
-@click.option("--quantity", default=0, type=int, show_default=True)
-@click.option("--price", default=0.0, type=float, show_default=True)
-@click.pass_context
-def import_product(ctx, barcode, quantity, price):
-    """Fetch a product from OpenFoodFacts and save it directly as an inventory item."""
-    payload = {"barcode": barcode, "quantity": quantity, "price": price}
-    resp = requests.post(f"{ctx.obj['API_URL']}/inventory/import", json=payload)
-    _handle_response(resp)
+        choice = input("Choose an option: ")
+
+        if choice == "1":
+            view_items()
+
+        elif choice == "2":
+            add_item()
+
+        elif choice == "3":
+            update_item()
+
+        elif choice == "4":
+            delete_item()
+
+        elif choice == "5":
+            search_product()
+
+        elif choice == "6":
+            print("Goodbye!")
+            break
+
+        else:
+            print("Invalid option.")
 
 
 if __name__ == "__main__":
-    cli(obj={})
+    menu()

@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 import requests
 
-from backend.inventory import (
+from .inventory import (
     get_all_items,
     get_item,
     add_item,

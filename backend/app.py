@@ -1,12 +1,22 @@
 from flask import Flask
 from flask_cors import CORS
 
-from api import api
+from .api import api
 
-app = Flask(__name__)
 
-# Allow React to communicate with Flask
-CORS(app)
+def create_app():
+    app = Flask(__name__)
+
+    CORS(app)
+    app.register_blueprint(api)
+
+    return app
+
+
+app = create_app()
+
+if __name__ == "__main__":
+    app.run(debug=True)
 
 # Register API routes
 app.register_blueprint(api)
